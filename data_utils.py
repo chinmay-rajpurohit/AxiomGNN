@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as Fnn
 import numpy as np
 from deeprobust.graph.data import Dataset
 from scipy.sparse import load_npz
@@ -9,12 +10,15 @@ def load_cora(device=None, custom_adj_path: str = None):
         device = torch.device("cpu")
 
     print("Loading cora dataset...")
-    data = Dataset(root='data', name='cora')
+    data = Dataset(root="data", name="cora")
 
     features = data.features
     if not isinstance(features, np.ndarray):
         features = features.toarray()
     X = torch.tensor(features, dtype=torch.float32, device=device)
+
+    
+    X = Fnn.normalize(X, p=2, dim=1)
 
     base_adj = data.adj
 
@@ -25,6 +29,12 @@ def load_cora(device=None, custom_adj_path: str = None):
     else:
         print("Using original Cora adjacency as A_bar")
         A_bar = torch.tensor(base_adj.toarray(), dtype=torch.float32, device=device)
+
+    
+    A_bar = 0.5 * (A_bar + A_bar.T)
+
+
+    A_bar = torch.clamp(A_bar, min=0.0)
 
     deg = A_bar.sum(dim=1)
     D = torch.diag(deg)

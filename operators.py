@@ -44,3 +44,20 @@ def L_adj(
 ) -> torch.Tensor:
     i, j = edge_index
     return Q[i, i] - Q[i, j] - Q[j, i] + Q[j, j]
+
+
+def A_from_w(
+    w: torch.Tensor,
+    num_nodes: int,
+    edge_index: torch.Tensor,
+) -> torch.Tensor:
+    device = w.device
+    dtype = w.dtype
+
+    A = torch.zeros((num_nodes, num_nodes), device=device, dtype=dtype)
+    i, j = edge_index
+
+    A[i, j] = w
+    A[j, i] = w
+
+    return A
