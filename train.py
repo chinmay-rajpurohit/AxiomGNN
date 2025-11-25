@@ -13,7 +13,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device:", device)
 
-    custom_adj_path = "data/cora_meta_adj_0.05.npz"
+    custom_adj_path = "data/cora_meta_adj_0.25.npz"
 
     X, A_bar, L_tilde = load_cora(device=device, custom_adj_path=custom_adj_path)
     n, d = X.shape
@@ -33,7 +33,7 @@ def main():
     lr_F = 1e-4
     lr_w = 5e-4
     reg_lambda = 1e-2
-    num_epochs = 130
+    num_epochs = 140
     inner_F_steps = 5
     inner_w_steps = 5
 
@@ -86,10 +86,10 @@ def main():
             "L_star": L_star.detach().cpu(),
             "A_star": A_star.detach().cpu(),
         },
-        "learned_graph_cora.pt",
+        "learned_graph_cora_0.25.pt",
     )
 
-    print("Training finished. Saved learned graph to learned_graph_cora.pt")
+    print("Training finished. Saved learned graph to learned_graph_cora_0.25.pt")
 
 
 if __name__ == "__main__":

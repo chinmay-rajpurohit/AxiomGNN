@@ -69,17 +69,11 @@ def evaluate(model, X, A_hat, labels, idx):
         return (preds[idx] == labels[idx]).float().mean().item()
 
 
-def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    ckpt = torch.load("learned_graph_cora.pt", map_location=device)
+def run_test_for_model(model_path, device, X, labels, idx_train, idx_val, idx_test, num_classes, groups):
+    
+    ckpt = torch.load(model_path, map_location=device)
     A_star = ckpt["A_star"].to(device)
-
-    X, labels, idx_train, idx_val, idx_test, num_classes = load_cora_features_and_labels(device)
     assert A_star.size(0) == X.size(0)
-
-    groups_np = np.load("data/groups.npy")
-    groups = torch.tensor(groups_np, dtype=torch.long, device=device)
 
     n, d = X.shape
     A_hat = normalize_adjacency(A_star)
@@ -124,8 +118,57 @@ def main():
     logits_all = model(X, A_hat)
     final_fair = sinkhorn_fairness_loss(logits_all, groups, eps=0.1, n_iters=50).item()
 
-    print(f"\nFinal Best Test Accuracy: {best_overall_test*100:.2f}%")
-    print(f"Final Sinkhorn Fairness Loss: {final_fair:.4f}")
+    return best_overall_test, final_fair
+
+
+def main():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    # Load data once (shared across all models)
+    X, labels, idx_train, idx_val, idx_test, num_classes = load_cora_features_and_labels(device)
+    groups_np = np.load("data/groups.npy")
+    groups = torch.tensor(groups_np, dtype=torch.long, device=device)
+
+    # List of saved models to test
+    perturbation_rates = ["0.05", "0.1", "0.15", "0.2", "0.25"]
+    
+    results = []
+    
+    for rate in perturbation_rates:
+        model_path = f"learned_graph_cora_{rate}.pt"
+        
+        # Check if model file exists
+        import os
+        if not os.path.exists(model_path):
+            print(f"\n[SKIP] {model_path} not found. Run train.py for this perturbation rate first.")
+            continue
+        
+        print(f"\n{'='*60}")
+        print(f"Testing model: {model_path} (Perturbation: {rate})")
+        print(f"{'='*60}")
+        
+        best_acc, fair_loss = run_test_for_model(
+            model_path, device, X, labels, idx_train, idx_val, idx_test, num_classes, groups
+        )
+        
+        results.append({
+            "perturbation": rate,
+            "test_acc": best_acc,
+            "fairness_loss": fair_loss
+        })
+        
+        print(f"\n[{rate}] Best Test Accuracy: {best_acc*100:.2f}%")
+        print(f"[{rate}] Fairness Loss: {fair_loss:.4f}")
+    
+    # Print summary table
+    print(f"\n{'='*60}")
+    print("SUMMARY OF ALL RESULTS")
+    print(f"{'='*60}")
+    print(f"{'Perturbation':<15} {'Test Acc':<15} {'Fairness Loss':<15}")
+    print("-" * 45)
+    for r in results:
+        print(f"{r['perturbation']:<15} {r['test_acc']*100:.2f}%{'':<10} {r['fairness_loss']:.4f}")
 
 
 if __name__ == "__main__":
